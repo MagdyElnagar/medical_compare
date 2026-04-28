@@ -1,0 +1,48 @@
+<html>
+
+<head>
+	<meta charset="UTF-8">
+
+</head>
+
+<body>
+
+
+	<div th:fragment="header">
+
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
+		<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+		<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
+		<link rel="stylesheet" th:href="@{/css/style.css}">
+		<div class=" p-2 card-header bg-dark text-white d-flex  justify-content-between align-items-center">
+			<div>
+				<a th:href="@{/comparison}" class="btn btn-outline-success" type="button">مقارنة الاصناف</a>
+				<a th:href="@{/upload}" class="btn btn-outline-success" type="button">رفع ملفات</a>
+				<a th:href="@{/zerostock}" class="btn btn-outline-success" type="button">المصفرات</a>
+
+				<a th:href="@{/upload_zero}" class="btn btn-outline-success" type="button">برنامج المصفرات</a>
+				<a th:href="@{/find_discount}" class="btn btn-outline-success" type="button">المرجح</a>
+				<a th:href="@{/rebak}" class="btn btn-outline-success" type="button">المرتجعات</a>
+				<a th:href="@{/clear}" class="btn btn-outline-success" type="button">تصفير البيانات</a>
+
+			</div>
+		</div>
+
+		<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+		<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+		<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+	</div>
+
+
+
+
+
+
+</body>
+
+
+
+
+
+</html>

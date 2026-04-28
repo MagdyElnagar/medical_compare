@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+
+<head>
+	<meta charset="UTF-8">
+	<title>مرتجعات</title>
+
+
+</head>
+
+
+<body>
+	<div th:replace="~{fragments/header :: header}">	</div>
+
+
+	<div class="container-fluid mt-4">
+
+		<div></div>
+		<form th:action="@{/rebak_add}" method="post">
+			<div class="card shadow">
+
+				<div class="card-body table-responsive">
+					<div class=" col col-m input-group mb-3">
+						<div class="input-group-prepend">
+							<span class="input-group-text" id="inputGroup-sizing-default">الاسم </span>
+						</div>
+						<input type="text" name="prod_name" class="form-control" aria-label="Default"
+							aria-describedby="inputGroup-sizing-default" autocomplete="off" required>
+					</div>
+					<div class=" col col-m input-group mb-3">
+						<div class="input-group-prepend">
+							<span class="input-group-text" id="inputGroup-sizing-default">المخزن </span>
+						</div>
+						<input type="text" name="store" class="form-control" aria-label="Default"
+							aria-describedby="inputGroup-sizing-default" autocomplete="off" required>
+					</div>
+					<div class="row">
+						<div class="col text-center">
+							<div class="input-group-prepend">
+								<button class="btn btn-outline-primary " type="submit">حفظ</button>
+
+							</div>
+						</div>
+					</div>
+				</div>
+		</form>
+	</div>
+
+	<div class="card shadow mb-3">
+
+		<div class="row mb-3 p-3">
+			<form th:action="@{/deleteAllRebak}" method="post" class="text-center mb-3">
+				<button class="btn btn-outline-danger" onclick="return confirm('متأكد عايز تمسح كل البيانات؟')">
+					مسح الكل
+				</button>
+			</form>
+		</div>
+		<table id="compTable" class="table  table-hover text-center">
+			<thead class="table-dark text-center">
+				<tr>
+					<th>الاسم</th>
+					<th>المخزن</th>
+					<th>@</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="p : ${products}">
+					<td th:text="${p.prodName}"></td>
+					<td th:text="${p.store}"></td>
+					<td>
+						<form th:action="@{/delete_sginal_rebak}" method="post">
+
+							<input type="hidden" name="name" th:value="${p.prodName}" />
+							<input type="hidden" name="store" th:value="${p.store}" />
+
+							<button class="btn btn-outline-danger" onclick="return confirm('متأكد عايز تمسح؟')"
+								type="submit">
+								مسح الصنف
+							</button>
+
+						</form>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+
+	</div>
+
+
+	<!-- Scripts -->
+
+
+
+</body>
+<script>
+	$(document).ready(function () {
+		$('#compTable').DataTable({
+			language: {url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json'},
+			pageLength: 20,
+			paging: true,
+			searching: true,
+			ordering: true,
+			dom: 'Bfrtip', // لتفعيل أزرار الطباعة والاكسيل
+			responsive: true
+		});
+
+
+		$('#compTable tbody tr').each(function () {
+			let discounts = $(this).find('.discount');
+			if (discounts.length === 0) return;
+
+			let values = discounts.map(function () {
+				let v = parseFloat($(this).text());
+				return isNaN(v) ? -Infinity : v;
+			}).get();
+
+			if (values.length === 0) return;
+			let max = Math.max(...values);
+			if (!isFinite(max)) return;
+
+			discounts.each(function () {
+				let v = parseFloat($(this).text());
+				if (!isNaN(v) && v === max) {
+					$(this).addClass(' bg-success p-2');
+				}
+			});
+			discounts.each(function () {
+				let v = parseFloat($(this).text());
+				if (isNaN(v) && v !== max) {
+					$(this).addClass(' bg-secondry p-2 ');
+				}
+			});
+			discounts.each(function () {
+				let v = parseFloat($(this).text());
+				if (!isNaN(v) && v < max) {
+					$(this).addClass(' bg-warning p-2 ');
+				}
+			});
+
+		});
+	});
+</script>
+
+</html>
