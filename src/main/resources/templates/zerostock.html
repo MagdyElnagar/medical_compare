@@ -1,105 +1,135 @@
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
-
 <head>
 	<meta charset="UTF-8">
 	<title>مصفرات</title>
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
 	<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 	<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
-	<link rel="stylesheet" href="src/main/css/style.css">
-
 </head>
 
-
-<body>
+<body class="bg-light">
 	<div th:replace="~{fragments/header :: header}"></div>
 
+	<div class="container-fluid mt-3">
+		<div class="row g-3 mb-3">
 
-
-
-
-	<form th:action="@{/zerostockadd}" method="post">
-		<div class="card">
-			<div class="card-shadow mb-5 p-3">
-				<div class="row">
-					<div class="col">
-						<div class=" col col-s input-group mb-3">
-							<div class="input-group-prepend">
-								<span class="input-group-text" id="inputGroup-sizing-default">الاسم </span>
+			<!-- إضافة يدوي - اسم بس -->
+			<div class="col-md-6">
+				<div class="card h-100">
+					<div class="card-header fw-bold">➕ إضافة صنف يدوي</div>
+					<div class="card-body">
+						<form th:action="@{/zerostockadd}" method="post">
+							<div class="input-group">
+								<span class="input-group-text">اسم الصنف</span>
+								<input type="text" name="name" class="form-control" autocomplete="off" required placeholder="مثال: بروفين 400">
+								<button type="submit" class="btn btn-outline-success">حفظ</button>
 							</div>
-							<input type="text" name="name" class="form-control" aria-label="Default"
-								aria-describedby="inputGroup-sizing-default" autocomplete="off" required>
-						</div>
-					</div>
-					<div class="col">
-						<div class=" col col-s input-group mb-3">
-							<div class="input-group-prepend">
-								<span class="input-group-text" id="inputGroup-sizing-default">السعر </span>
-							</div>
-							<input type="text" name="price" class="form-control" aria-label="Default"
-								aria-describedby="inputGroup-sizing-default" autocomplete="off" required>
-						</div>
-					</div>
-					<div class="col">
-						<div class=" col col-s input-group mb-3">
-							<div class="input-group-prepend">
-								<span class="input-group-text" id="inputGroup-sizing-default">الخصم </span>
-							</div>
-							<input type="text" name="discount" class="form-control" aria-label="Default"
-								aria-describedby="inputGroup-sizing-default" autocomplete="off" required>
-						</div>
+						</form>
 					</div>
 				</div>
-				<div class="row">
-					<div class="col">
-						<div class=" col col-s input-group mb-3">
-
-							<button type="submit" class="btn  btn-outline-success w-100 p-3">
-								حفظ</button>
-						</div>
-					</div>
-				</div>
-
 			</div>
 
+			<!-- رفع Excel -->
+			<div class="col-md-6">
+				<div class="card h-100">
+					<div class="card-header fw-bold">📂 رفع ملف Excel (عمود اسم الصنف بس)</div>
+					<div class="card-body">
+						<form th:action="@{/zerostock_upload_excel}" method="post" enctype="multipart/form-data">
+							<div class="input-group">
+								<input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+								<button type="submit" class="btn btn-outline-primary">رفع</button>
+							</div>
+							<small class="text-muted mt-1 d-block">الملف يحتوي على عمود واحد فيه أسماء الأصناف (بدون header أو بـ header في السطر الأول)</small>
+						</form>
+					</div>
+				</div>
+			</div>
 		</div>
-	</form>
-	<table id="compTable" class="table  table-hover text-center">
-		<thead class="table-dark text-center">
-			<tr>
-				<th>الاسم</th>
-				<th>السعر</th>
-				<th>الخصم</th>
-				<th>@</th>
-			</tr>
-		</thead>
-		<tbody>
 
-			<tr th:each="p : ${products}">
-				<td th:text="${p.name}"></td>
-				<td th:text="${p.price}"></td>
-				<td th:text="${p.discount}"></td>
-				<td>
-					<form th:action="@{/delete_sginal_ZeroSotck_rebak}" method="post">
+		<!-- الجدول -->
+		<div class="card shadow">
+			<div class="card-header d-flex justify-content-between align-items-center">
+				<span class="fw-bold">📋 قائمة المصفرات</span>
+				<form th:action="@{/deleteAllZeroStock}" method="post"
+					  onsubmit="return confirm('متأكد عايز تمسح كل المصفرات؟')">
+					<button class="btn btn-outline-danger btn-sm">🗑 مسح الكل</button>
+				</form>
+			</div>
+			<div class="card-body table-responsive">
+				<table id="compTable" class="table table-hover text-center">
+					<thead class="table-dark text-center">
+						<tr>
+							<th>#</th>
+							<th>اسم الصنف</th>
+							<th th:each="wName : ${warehouses}" th:text="${wName}"></th>
+							<th>@</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr th:each="item, stat : ${enrichedList}">
+							<td th:text="${stat.count}" class="text-muted"></td>
+							<td class="fw-bold text-end" th:text="${item.product.name}"></td>
 
-						<input type="hidden" name="name" th:value="${p.name}" />
-						<input type="hidden" name="price" th:value="${p.price}" />
-						<input type="hidden" name="discount" th:value="${p.discount}" />
-						<input type="hidden" name="id" th:value="${p.id}" />
+							<td th:each="wName : ${warehouses}" class="discount">
+								<span th:if="${item.warehouseMatches.containsKey(wName)}"
+									  th:text="${item.warehouseMatches.get(wName)}">
+								</span>
+							</td>
 
+							<td>
+								<form th:action="@{/delete_sginal_ZeroSotck_rebak}" method="post">
+									<input type="hidden" name="name"  th:value="${item.product.name}" />
+									<input type="hidden" name="price" value="0" />
+									<input type="hidden" name="id"    th:value="${item.product.id}" />
+									<button class="btn btn-outline-danger btn-sm"
+										onclick="return confirm('متأكد؟')" type="submit">مسح</button>
+								</form>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
 
-						<button class="btn btn-outline-danger" onclick="return confirm('متأكد عايز تمسح؟')"
-							type="submit">
-							مسح الصنف
-						</button>
+	<script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+	<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+	<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+	<script>
+		$(document).ready(function () {
+			// تلوين الخصومات — أخضر = أعلى، أصفر = أقل
+			$('#compTable tbody tr').each(function () {
+				let cells = $(this).find('.discount');
+				let values = cells.map(function () {
+					let v = parseFloat($(this).text());
+					return isNaN(v) ? -Infinity : v;
+				}).get();
 
-					</form>
-				</td>
-			</tr>
-		</tbody>
-	</table>
+				let max = Math.max(...values);
+				if (!isFinite(max)) return;
 
+				cells.each(function () {
+					let v = parseFloat($(this).text());
+					if (!isNaN(v) && v === max) {
+						$(this).addClass('bg-success text-white p-2');
+					} else if (!isNaN(v) && v < max) {
+						$(this).addClass('bg-warning p-2');
+					}
+				});
+			});
+
+			$('#compTable').DataTable({
+				language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json' },
+				pageLength: 20,
+				paging: true,
+				searching: true,
+				ordering: true,
+				dom: 'Bfrtip',
+				responsive: true
+			});
+		});
+	</script>
 </body>
-
 </html>

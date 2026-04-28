@@ -70,8 +70,7 @@
 					<td>
 						<form th:action="@{/delete_sginal_rebak}" method="post">
 
-							<input type="hidden" name="name" th:value="${p.prodName}" />
-							<input type="hidden" name="store" th:value="${p.store}" />
+							<input type="hidden" name="id" th:value="${p.id}" />
 
 							<button class="btn btn-outline-danger" onclick="return confirm('متأكد عايز تمسح؟')"
 								type="submit">
