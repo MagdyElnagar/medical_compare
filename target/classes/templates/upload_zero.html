@@ -17,7 +17,7 @@
 	<div class="container-fluid mt-4">
 		<div class="card shadow">
 			<div class="card-body">
-				<div class="table-responsive">
+				<div class="text-center">
 
 					<div class="container mt-5 text-center">
 						<div class="card shadow p-5">
@@ -29,10 +29,10 @@
 					</div>
 
 					<table id="compTable" class="table  table-hover text-center">
-						<thead class="table-dark text-center">
+						<thead class="table-dark ">
 							<tr>
 								<th>مسلسل</th>
-								<th>اسم الصنف</th>
+								<th >اسم الصنف</th>
 								<th>السعر</th>
 								<!-- هنا يتم إنشاء عمود لكل مخزن بشكل ديناميكي -->
 								<th th:each="wName : ${warehouses}" th:text="${wName}"></th>

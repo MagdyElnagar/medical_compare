@@ -32,10 +32,7 @@ public class MedicineController {
 		List<Product> products = zss.findAll();
 		List<Medicine> allMedicines = repository.findAll();
 
-		List<String> warehouses = allMedicines.stream()
-				.map(Medicine::getWarehouse)
-				.filter(Objects::nonNull)
-				.distinct()
+		List<String> warehouses = allMedicines.stream().map(Medicine::getWarehouse).filter(Objects::nonNull).distinct()
 				.collect(Collectors.toList());
 
 		List<ZeroStockWithMatches> enrichedList = new ArrayList<>();
@@ -51,14 +48,14 @@ public class MedicineController {
 
 	private Map<String, Double> findWarehouseMatches(String name, List<Medicine> allMedicines) {
 		Map<String, Double> result = new LinkedHashMap<>();
-		if (name == null || name.isBlank()) return result;
+		if (name == null || name.isBlank())
+			return result;
 		String cleanName = service.cleanMedicineName(name);
 		for (Medicine med : allMedicines) {
-			if (med.getBrandName() == null || med.getWarehouse() == null) continue;
-			double score = service.similarity(
-				service.cleanMedicineName(med.getBrandName()), cleanName
-			);
-			if (score >= 0.90) {
+			if (med.getBrandName() == null || med.getWarehouse() == null)
+				continue;
+			double score = service.similarity(service.cleanMedicineName(med.getBrandName()), cleanName);
+			if (score >= 0.95) {
 				result.merge(med.getWarehouse(), med.getDiscount(), Math::max);
 			}
 		}
@@ -68,10 +65,10 @@ public class MedicineController {
 	// إضافة صنف واحد يدوي - اسم بس
 	@PostMapping("/zerostockadd")
 	public String add(@RequestParam String name) {
-	    Product p = new Product();
-	    p.setName(name);
-	    zss.save(p);
-	    return "redirect:/zerostock";
+		Product p = new Product();
+		p.setName(name);
+		zss.save(p);
+		return "redirect:/zerostock";
 	}
 
 	// رفع Excel فيه أسماء المصفرات
@@ -81,12 +78,17 @@ public class MedicineController {
 			Workbook workbook = WorkbookFactory.create(file.getInputStream());
 			Sheet sheet = workbook.getSheetAt(0);
 			for (Row row : sheet) {
-				if (row.getRowNum() == 0) continue; // skip header
+				if (row.getRowNum() == 0)
+					continue; // skip header
 				Cell cell = row.getCell(0);
-				if (cell == null) continue;
+				if (cell == null)
+					continue;
 				String name = cell.getStringCellValue().trim();
-				if (name.isEmpty()) continue;
+				name = service.cleanMedicineName(name);
+				if (name.isEmpty())
+					continue;
 				Product p = new Product();
+//				p.setPrice(0);	
 				p.setName(name);
 				zss.save(p);
 			}
@@ -98,9 +100,7 @@ public class MedicineController {
 	}
 
 	@PostMapping("/delete_sginal_ZeroSotck_rebak")
-	public String deleteSingleZeroStock(@RequestParam Long id,
-			@RequestParam String name,
-			@RequestParam String price,
+	public String deleteSingleZeroStock(@RequestParam Long id, @RequestParam String name, @RequestParam String price,
 			HttpServletRequest request) {
 		zss.delete(id);
 		return "redirect:/zerostock";
@@ -114,7 +114,9 @@ public class MedicineController {
 	}
 
 	@GetMapping("/test")
-	public String test() { return "test"; }
+	public String test() {
+		return "test";
+	}
 
 	@GetMapping("/view-data")
 	public String viewData(Model model) {
@@ -123,7 +125,9 @@ public class MedicineController {
 	}
 
 	@GetMapping("/upload_zero")
-	public String upload_zero() { return "upload_zero"; }
+	public String upload_zero() {
+		return "upload_zero";
+	}
 
 	@GetMapping("/clear")
 	public String clearData() {
@@ -141,7 +145,8 @@ public class MedicineController {
 
 		for (Medicine zeroMed : allZeroMedicines) {
 			Medicine matched = service.findBestMatch(zeroMed.getBrandName(), allMedicines);
-			if (matched == null) continue;
+			if (matched == null)
+				continue;
 
 			String cleanName = service.cleanMedicineName(matched.getBrandName());
 			String strength = matched.getStrength() != null ? matched.getStrength() : "";
@@ -155,7 +160,8 @@ public class MedicineController {
 			row.setPrice(price);
 
 			for (Medicine med : allMedicines) {
-				if (med.getWarehouse() == null) continue;
+				if (med.getWarehouse() == null)
+					continue;
 				double score = service.similarity(service.cleanMedicineName(med.getBrandName()), cleanName);
 				if (score >= 0.85) {
 					row.getWarehouseDiscounts().put(med.getWarehouse(), med.getDiscount());

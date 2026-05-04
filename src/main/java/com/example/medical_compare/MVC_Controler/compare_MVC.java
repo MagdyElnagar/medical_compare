@@ -60,8 +60,9 @@ public class compare_MVC {
 				try {
 					// قراءة البيانات (تأكد من ترتيب الأعمدة عندك: اسم، سعر، خصم)
 					String name = row.getCell(0).getStringCellValue();
-					Double price = row.getCell(1).getNumericCellValue();
-					Double discount = row.getCell(2).getNumericCellValue();
+					double price = row.getCell(1).getNumericCellValue();
+					double discount = row.getCell(2).getNumericCellValue();
+					discount = ((int) discount);
 					// System.out.println(name);
 					medicines.add(
 							service.parseExcelRow(service.cleanMedicineName(name), price, discount, warehouseName));
@@ -91,7 +92,7 @@ public class compare_MVC {
 			// 1. تنظيف الاسم (البراند والتركيز)
 			String cleanName = service.cleanMedicineName(med.getBrandName());
 			String strength = med.getStrength() != null ? med.getStrength() : "";
-			Double price = med.getPrice();
+			double price = med.getPrice();
 
 			// 2. البحث عن صنف موجود بنفس السعر ونفس الاسم (تقريباً)
 			String bestKey = findMatchByPriceAndName(comparisonMap, cleanName, strength, price);
@@ -118,7 +119,7 @@ public class compare_MVC {
 		return "comparison";
 	}
 
-	private String findMatchByPriceAndName(Map<String, ComparisonRow> map, String name, String strength, Double price) {
+	private String findMatchByPriceAndName(Map<String, ComparisonRow> map, String name, String strength, double price) {
 		JaroWinklerSimilarity jw = new JaroWinklerSimilarity();
 
 		for (String key : map.keySet()) {
@@ -130,7 +131,7 @@ public class compare_MVC {
 			if (isSamePrice) {
 				// الشرط الثاني: الاسم متشابه جداً (أكثر من 85%) بنفس السعر
 				double score = jw.apply(existing.getBrandName().toLowerCase(), name.toLowerCase());
-				if (score > 0.88) {
+				if (score > 0.90) {
 					return key;
 				}
 
