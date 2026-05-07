@@ -18,80 +18,145 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class MedicineService {
 
-	private static final List<String> STOP_WORDS = Arrays.asList("جديد", "سعر", "مخزن", "عرض", "قديم", "مميز", "تفتيح",
-			"كريم", "اقراص", "قرص", "شراب", "ج", "س ج", "باكت", "مجم", "قـــــرص", "جديد", "الباكت", "باكو", "الباكو",
-			"بالضمان", "كرتونه", "س  ج", "ك31", "ك81", "40", "48", "ك240", "ك120", "ك420", "ك160", "ك96", "ك80", "ك300",
-			"ك590", "بالضمان");
-
 	public String cleanMedicineName(String name) {
 		if (name == null)
 			return "";
 
-		name = name.replaceAll("٠", "0").replaceAll("١", "1").replaceAll("٢", "2").replaceAll("٣", "3")
-				.replaceAll("٤", "4").replaceAll("٥", "5").replaceAll("٦", "6").replaceAll("٧", "7")
-				.replaceAll("٨", "8").replaceAll("٩", "9").trim();
+		// 1. تطبيع الأرقام العربية للإنجليزية
+		name = name.replaceAll("٠", "0").replaceAll("١", "1").replaceAll("٢", "2")
+				.replaceAll("٣", "3").replaceAll("٤", "4").replaceAll("٥", "5")
+				.replaceAll("٦", "6").replaceAll("٧", "7").replaceAll("٨", "8")
+				.replaceAll("٩", "9").trim();
 
-		name = name.replaceAll("[أإآ]", "ا").replace("ة", "ه").replace("ى", "ي").replace("ـ", "").trim();
+		// 2. تطبيع الحروف العربية
+		name = name.replaceAll("[أإآ]", "ا")
+				.replace("ة", "ه")
+				.replace("ى", "ي")
+				.replace("ـ", "")
+				.trim();
 
+		// 3. إزالة رموز الضوضاء
+		name = name.replaceAll("[#\\*\\.\\-،؛@/\\\\()\\[\\]®]", " ");
+
+		// 4. إزالة أسماء الشركات والموردين
 		Map<String, String> replacements = new HashMap<>();
-		replacements.put("كبسوله", "كبسول");
-		replacements.put("كبسولة", "كبسول");
-		
-
-		replacements.put("احترس", "");
-		replacements.put("شريط", "");
-		replacements.put("الفرعونيه", "");
+		replacements.put("نوفارتيس", "");
+		replacements.put("اوتسوكا", "");
+		replacements.put("اتسوكا", "");
+		replacements.put("ايبيكو", "");
+		replacements.put("ابيكو", "");
+		replacements.put("امون", "");
+		replacements.put("ازيس", "");
+		replacements.put("ايفا فارم", "");
+		replacements.put("ايفا", "");
 		replacements.put("فاركو", "");
 		replacements.put("المصريه", "");
+		replacements.put("الفرعونيه", "");
 		replacements.put("يونيفارما", "");
 		replacements.put("لينكو فارم", "");
 		replacements.put("انترفارم", "");
 		replacements.put("الاوروبيه", "");
 		replacements.put("العامريه", "");
-		replacements.put("ايفا", "");
-		replacements.put("ايفا فارم", "");
-		replacements.put("مينافارم", "");
-		replacements.put("مينا فارم", "");
-		replacements.put("استلام ", "");
-		replacements.put("شركات ", "");
-		replacements.put("فقط", "");
 		replacements.put("وول فارم", "");
 		replacements.put("فايزر", "");
 		replacements.put("بارك فيل", "");
-		replacements.put("المهن", "");
 		replacements.put("اكديما", "");
+		replacements.put("دراج فارم", "");
+		replacements.put("ابوت", "");
+		replacements.put("جلاكسو", "");
+		replacements.put("سانوفى", "");
+		replacements.put("باير", "");
+		replacements.put("روش", "");
+		replacements.put("ليلى", "");
+		replacements.put("كيبر", "");
+		replacements.put("سيجما", "");
+		replacements.put("مارسيل", "");
+		replacements.put("راميدا", "");
+		replacements.put("الاسكندريه", "");
+		replacements.put("كيما", "");
+		replacements.put("المهن", "");
+		replacements.put("مينافارم", "");
+		replacements.put("مينا فارم", "");
+
+		// 5. إزالة كلمات الحالة والوصف
+		replacements.put("استلام ", "");
+		replacements.put("شركات ", "");
+		replacements.put("فقط", "");
+		replacements.put("احترس", "");
+		replacements.put("شريط", "");
 		replacements.put("ممنوعه", "");
 		replacements.put("صغيره", "");
 		replacements.put("علبه", "");
 		replacements.put("كبيره", "");
-		replacements.put("دراج فارم", "");
 		replacements.put("تشغيله", "");
 		replacements.put("القاهره", "");
-		 
+		replacements.put("بالضمان", "");
+		replacements.put("ضمان", "");
+		replacements.put("س ج", "");
+		replacements.put("س.ج", "");
+		replacements.put("س  ج", "");
+		replacements.put("س ق", "");
+		replacements.put("سعر", "");
+		replacements.put("جديد", "");
+		replacements.put("قديم", "");
+		replacements.put("كبير", "");
+		replacements.put("صغير", "");
+		replacements.put("عادى", "");
 
-
+		// 6. توحيد أشكال الجرعة
 		replacements.put("اقراص", "قرص");
+		replacements.put("قراص", "قرص");
+		replacements.put("كبسوله", "قرص");
+		replacements.put("كبسول", "قرص");
+		replacements.put("نقط", "قطره");
+		replacements.put("ممتد المفعول", "اكس ار");
+		replacements.put("اس ار", "اكس ار");
+		replacements.put("فوار", "اكياس");
+		replacements.put("حبيبات", "اكياس");
 		replacements.put(" بلس", " plus ");
 		replacements.put(" بلاس", " plus ");
 		replacements.put(" بلاص", " plus ");
-		replacements.put("نقط", "قطره");
-		replacements.put("ممتد المفعول", "اكس ار");
-		replacements.put("فوار", "اكياس");
-		replacements.put("حبيبات", "اكياس");
 
 		for (Map.Entry<String, String> entry : replacements.entrySet()) {
 			name = name.replace(entry.getKey(), entry.getValue());
 		}
 
-		name = name.replaceAll("(?i)(سعر|جديد|قديم|جنيه|س\\.ج|س ج)\\s*\\d*", " ")
-				.replaceAll("(?i)(باكو|باكت|كرتونه)\\s*\\d+", " ").replaceAll("\\.xlsx|\\.xls", " ")
-				.replaceAll("(?i)(احترس|ركز|قديم|جديد|جنية|جنيه)\\s*\\d+", " ")
-				.replaceAll("[\\*\\-\\+\\=\\_\\#\\@\\!\\؟\\،\\؛]", " ").replaceAll("\\s+", " ").trim();
-		name = name.replaceAll("\\s*/(\\d{4,}|\\S+)?\\s*$", "").trim();	
+		// 7. إزالة patterns الضوضاء
+		name = name.replaceAll("(?i)(باكو|باكت|كرتونه)\\s*\\d+", " ")
+				.replaceAll("\\.xlsx|\\.xls", " ")
+				.replaceAll("(?i)(احترس|ركز|جنية|جنيه)\\s*\\d+", " ")
+				.replaceAll("\\s*/(\\d{4,}|\\S+)?\\s*$", "")
+				.replaceAll("-{2,}", " ")
+				.trim();
+
+		// 8. *** تطبيع تكرار الحروف ***
+		// ريموواكس => ريمواكس ، اووميبازول => اوميبازول
+		name = name.replaceAll("(.)\\1+", "$1");
+
+		// 9. إزالة أرقام الباكت المنفردة في نهاية الاسم
+		name = name.replaceAll("\\s*\\d+\\s*(ق|شريط|انبول|امبول)\\b", " ");
+
+		// 10. تنظيف المسافات النهائية
 		name = name.replaceAll("\\s+", " ").trim();
-		name = name.replaceAll("كبسول", "قرص").trim();	
+
+		// 11. توحيد كبسول -> قرص (بعد كل التنظيف)
+		name = name.replaceAll("كبسول", "قرص").trim();
 		name = name.replaceAll("\\s+", " ").trim();
+
 		return name;
+	}
+
+	/**
+	 * بيأخذ اسم الملف ويرجع اسم المخزن نظيف بدون امتداد
+	 * مثال: "الشمس.xlsx" => "الشمس"
+	 */
+	public String cleanWarehouseName(String filename) {
+		if (filename == null) return "unknown";
+		// شيل الامتداد
+		filename = filename.replaceAll("(?i)\\.xlsx?$", "").trim();
+		// شيل أي underscores أو dashes
+		filename = filename.replace("_", " ").replace("-", " ").trim();
+		return filename;
 	}
 
 	public Medicine parseExcelRow(String rawName, Double price, Double discount, String warehouse) {
@@ -100,24 +165,31 @@ public class MedicineService {
 		med.setPrice(price);
 		med.setDiscount(discount);
 		med.setWarehouse(warehouse);
-
-		rawName = truncateAfterUnit(rawName);
 		med.setBrandName(rawName);
 		return med;
 	}
 
-	private String truncateAfterUnit(String name) {
-		if (name == null)
-			return "";
-
-		String regex = "(مجم| مل | جم| مج |mg|ml|gm|g|mcg)";
-		Pattern pattern = Pattern.compile(regex, Pattern.UNICODE_CASE);
-		java.util.regex.Matcher matcher = pattern.matcher(name);
-
-		if (matcher.find()) {
-			return name.substring(0, matcher.end()).trim();
+	/**
+	 * بيستخرج التركيز من اسم الدواء كـ string للمقارنة
+	 * ايراستابكس 40مجم       => "40"
+	 * ايراستابكس كو 40-5مجم  => "40-5"
+	 * ايراستابكس تريو 40-5-12.5 => "40-5-12.5"
+	 * ريمواكس 15             => "15"
+	 * بدون تركيز             => ""
+	 */
+	public String extractDose(String name) {
+		if (name == null) return "";
+		// ابحث عن pattern: رقم أو أرقام مفصولة بـ - أو /
+		// مثال: 40 | 40-5 | 40-5-12.5 | 20/10
+		java.util.regex.Matcher m = java.util.regex.Pattern
+			.compile("(\\d+(?:[.,]\\d+)?(?:[\\-/]\\d+(?:[.,]\\d+)?)*)")
+			.matcher(name);
+		StringBuilder doses = new StringBuilder();
+		while (m.find()) {
+			if (doses.length() > 0) doses.append("-");
+			doses.append(m.group(1).replace(",", "."));
 		}
-		return name;
+		return doses.toString();
 	}
 
 	public double similarity(String s1, String s2) {
@@ -139,7 +211,7 @@ public class MedicineService {
 				bestMatch = med;
 			}
 		}
-		return bestScore >= 0.88 ? bestMatch : null;
+		return bestScore >= 0.80 ? bestMatch : null;
 	}
 
 	public List<Medicine> loadFromExcel(MultipartFile file) {

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.commons.text.similarity.JaroWinklerSimilarity;
+import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -23,7 +24,6 @@ import com.example.medical_compare.ComparisonRow;
 import com.example.medical_compare.Medicine;
 import com.example.medical_compare.MedicineRepository;
 import com.example.medical_compare.MedicineService;
-import com.example.medical_compare.model.Product;
 
 @Controller
 public class compare_MVC {
@@ -44,12 +44,11 @@ public class compare_MVC {
 			if (file.isEmpty())
 				continue;
 
-			String warehouseName = service.cleanMedicineName(file.getOriginalFilename());
+			String warehouseName = service.cleanWarehouseName(file.getOriginalFilename());
 
-			// 1. مسح البيانات القديمة لهذا المخزن فقط قبل الرفع الجديد
+			// مسح البيانات القديمة لهذا المخزن فقط
 			repository.deleteByWarehouse(warehouseName);
 
-			// 2. معالجة الملف كما فعلنا سابقاً
 			Workbook workbook = WorkbookFactory.create(file.getInputStream());
 			Sheet sheet = workbook.getSheetAt(0);
 
@@ -58,20 +57,22 @@ public class compare_MVC {
 				if (row.getRowNum() == 0)
 					continue;
 				try {
-					// قراءة البيانات (تأكد من ترتيب الأعمدة عندك: اسم، سعر، خصم)
-					
-					String name = row.getCell(0).getStringCellValue();
-					double price = row.getCell(1).getNumericCellValue();
-					double discount = row.getCell(2).getNumericCellValue();
-					discount = ((int) discount);
-					// System.out.println(name);
+					String name     = row.getCell(0).getStringCellValue();
+					double price    = row.getCell(1).getNumericCellValue();
+					double discount = (int) row.getCell(2).getNumericCellValue();
+
 					medicines.add(
-							service.parseExcelRow(service.cleanMedicineName(name), price, discount, warehouseName));
+						service.parseExcelRow(
+							service.cleanMedicineName(name),
+							price,
+							discount,
+							warehouseName
+						)
+					);
 				} catch (Exception e) {
-					// سطر خاطئ، أكمل الباقي
+					// سطر خاطئ، أكمل
 				}
 			}
-			// 3. حفظ البيانات الجديدة للمخزن
 			repository.saveAll(medicines);
 			workbook.close();
 		}
@@ -81,35 +82,31 @@ public class compare_MVC {
 	@GetMapping("/comparison")
 	public String showComparison(Model model) {
 		List<Medicine> allMedicines = repository.findAll();
-		List<Medicine> allZeroMedicines = null;
 
-		List<String> warehouses = allMedicines.stream().map(Medicine::getWarehouse).distinct()
+		List<String> warehouses = allMedicines.stream()
+				.map(Medicine::getWarehouse)
+				.distinct()
 				.collect(Collectors.toList());
 
-		// نستخدم LinkedHashMap للحفاظ على ترتيب الإدخال
 		Map<String, ComparisonRow> comparisonMap = new LinkedHashMap<>();
 
 		for (Medicine med : allMedicines) {
-			// 1. تنظيف الاسم (البراند والتركيز)
 			String cleanName = service.cleanMedicineName(med.getBrandName());
-			String strength = med.getStrength() != null ? med.getStrength() : "";
-			double price = med.getPrice();
+			String strength  = med.getStrength() != null ? med.getStrength() : "";
+			double price     = med.getPrice();
 
-			// 2. البحث عن صنف موجود بنفس السعر ونفس الاسم (تقريباً)
-			String bestKey = findMatchByPriceAndName(comparisonMap, cleanName, strength, price);
+			String bestKey = findMatchByPriceAndName(comparisonMap, cleanName, price);
 
 			if (bestKey != null) {
-				// صنف مطابق في السعر والاسم -> ندمج الخصم
-				comparisonMap.get(bestKey).getWarehouseDiscounts().put(med.getWarehouse(), med.getDiscount());
+				comparisonMap.get(bestKey).getWarehouseDiscounts()
+						.put(med.getWarehouse(), med.getDiscount());
 			} else {
-				// صنف جديد تماماً (سعر مختلف أو اسم بعيد)
 				ComparisonRow row = new ComparisonRow();
 				row.setBrandName(med.getBrandName());
 				row.setStrength(strength);
 				row.setPrice(price);
 				row.getWarehouseDiscounts().put(med.getWarehouse(), med.getDiscount());
 
-				// المفتاح الجديد يحتوي على السعر لضمان عدم تداخل الأسعار المختلفة
 				String newKey = price + "_" + cleanName + "_" + strength;
 				comparisonMap.put(newKey, row);
 			}
@@ -120,24 +117,47 @@ public class compare_MVC {
 		return "comparison";
 	}
 
-	private String findMatchByPriceAndName(Map<String, ComparisonRow> map, String name, String strength, double price) {
+	/**
+	 * المنطق:
+	 * 1. السعر لازم يتطابق تماماً (فرق أقل من 0.01)
+	 * 2. التركيز (الأرقام في الاسم) لازم يتطابق — ده يمنع دمج ايراستابكس 40 مع ايراستابكس كو 40-5
+	 * 3. الاسم بعد شيل التركيز لازم يكون متشابه بـ 75%+
+	 */
+	private String findMatchByPriceAndName(Map<String, ComparisonRow> map,
+			String name, double price) {
+
 		JaroWinklerSimilarity jw = new JaroWinklerSimilarity();
+		String bestKey   = null;
+		double bestScore = 0;
+
+		// استخرج التركيز من الاسم الجديد
+		String newDose = service.extractDose(name);
 
 		for (String key : map.keySet()) {
 			ComparisonRow existing = map.get(key);
 
-			// الشرط الأول: السعر متطابق تماماً
-			boolean isSamePrice = Math.abs(existing.getPrice() - price) < 0.01;
+			// 1. السعر لازم يكون متطابق تقريباً
+			if (Math.abs(existing.getPrice() - price) > 0.01)
+				continue;
 
-			if (isSamePrice) {
-				// الشرط الثاني: الاسم متشابه جداً (أكثر من 85%) بنفس السعر
-				double score = jw.apply(existing.getBrandName().toLowerCase(), name.toLowerCase());
-				if (score > 0.90) {
-					return key;
-				}
+			// 2. التركيز لازم يتطابق تماماً
+			String existingDose = service.extractDose(
+				service.cleanMedicineName(existing.getBrandName())
+			);
+			if (!newDose.equals(existingDose))
+				continue;
 
+			// 3. الاسم بعد شيل التركيز لازم يكون متشابه
+			double score = jw.apply(
+				service.cleanMedicineName(existing.getBrandName()),
+				name
+			);
+
+			if (score > 0.75 && score > bestScore) {
+				bestScore = score;
+				bestKey   = key;
 			}
 		}
-		return null;
+		return bestKey;
 	}
 }
