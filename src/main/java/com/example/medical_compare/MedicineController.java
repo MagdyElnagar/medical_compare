@@ -8,8 +8,11 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.medical_compare.Repository.ZeroStockMatchRepository;
+import com.example.medical_compare.Service.ReferenceProductService;
 import com.example.medical_compare.Service.ZeroStockService;
 import com.example.medical_compare.model.Product;
+import com.example.medical_compare.model.ReferenceProduct;
 import com.example.medical_compare.model.ZeroStockWithMatches;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,10 +25,26 @@ public class MedicineController {
 
 	@Autowired
 	private MedicineRepository repository;
+
+	@Autowired
+	private ZeroStockMatchRepository zeroStockMatchRepo;
+
 	@Autowired
 	private MedicineService service;
 	@Autowired
 	private ZeroStockService zss;
+	@Autowired
+	private ReferenceProductService referenceProductService;
+
+	@GetMapping("/delete_reference_prices")
+	public String deleteReferencePrices() {
+		System.out.println("Ref Work");
+
+		referenceProductService.deleteAll();
+
+		return "redirect:/zerostock";
+
+	}
 
 	@GetMapping("/zerostock")
 	public String zerostock(Model model) {
@@ -34,16 +53,67 @@ public class MedicineController {
 
 		List<String> warehouses = allMedicines.stream().map(Medicine::getWarehouse).filter(Objects::nonNull).distinct()
 				.collect(Collectors.toList());
+		List<ZeroStockWithMatches> allMatches = zeroStockMatchRepo.findAll();
 
+		// ② Map: productId → (warehouse → discount)
+		Map<Long, Map<String, Double>> matchMap = new LinkedHashMap<>();
+		for (ZeroStockWithMatches m : allMatches) {
+			matchMap.computeIfAbsent(m.getProductId(), k -> new LinkedHashMap<>()).merge(m.getWarehouseName(),
+					m.getDiscount(), Math::max);
+		}
+
+		// ③ بناء الـ enrichedList
 		List<ZeroStockWithMatches> enrichedList = new ArrayList<>();
 		for (Product p : products) {
-			Map<String, Double> matches = findWarehouseMatches(p.getName(), allMedicines);
+			Map<String, Double> matches = matchMap.getOrDefault(p.getId(), Map.of());
 			enrichedList.add(new ZeroStockWithMatches(p, matches));
 		}
 
 		model.addAttribute("enrichedList", enrichedList);
 		model.addAttribute("warehouses", warehouses);
 		return "zerostock";
+	}
+
+	@PostMapping("/upload_reference_prices")
+	public String uploadReferencePrices(@RequestParam("fileRef") MultipartFile file) {
+		try {
+			referenceProductService.deleteAll();
+			Workbook workbook = WorkbookFactory.create(file.getInputStream());
+			Sheet sheet = workbook.getSheetAt(0);
+			List<ReferenceProduct> list = new ArrayList<>();
+
+			for (Row row : sheet) {
+				if (row.getRowNum() == 0)
+					continue;
+				Cell codeCell = row.getCell(0);
+				Cell nameCell = row.getCell(1);
+				Cell priceCell = row.getCell(2);
+				if (codeCell == null || priceCell == null)
+					continue;
+
+				String itemCode = getCellString(codeCell).trim();
+				String name = nameCell != null ? nameCell.getStringCellValue().trim() : "";
+				double price = 0;
+				try {
+					price = priceCell.getNumericCellValue();
+				} catch (Exception ignored) {
+				}
+
+				if (itemCode.isEmpty())
+					continue;
+
+				ReferenceProduct rp = new ReferenceProduct();
+				rp.setItemCode(itemCode);
+				rp.setName(name);
+				rp.setPrice(price);
+				list.add(rp);
+			}
+			referenceProductService.saveAll(list);
+			workbook.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return "redirect:/zerostock";
 	}
 
 	private Map<String, Double> findWarehouseMatches(String name, List<Medicine> allMedicines) {
@@ -75,24 +145,76 @@ public class MedicineController {
 	@PostMapping("/zerostock_upload_excel")
 	public String uploadZeroStockExcel(@RequestParam("file") MultipartFile file) {
 		try {
+			// ① جيب الـ reference prices بالكود
+			Map<String, Double> priceMap = referenceProductService.findAll().stream()
+					.collect(Collectors.toMap(ReferenceProduct::getItemCode, ReferenceProduct::getPrice, (a, b) -> a));
+
+			// ② جيب أدوية المخازن مرة واحدة + clean أسماءها مرة واحدة
+			List<Medicine> allMedicines = repository.findAll();
+			Map<Medicine, String> cleanedMeds = new LinkedHashMap<>();
+			for (Medicine m : allMedicines) {
+				if (m.getBrandName() != null && m.getWarehouse() != null) {
+					cleanedMeds.put(m, service.cleanMedicineName(m.getBrandName()));
+				}
+			}
+
 			Workbook workbook = WorkbookFactory.create(file.getInputStream());
 			Sheet sheet = workbook.getSheetAt(0);
+			List<Product> toSave = new ArrayList<>();
+			List<ZeroStockWithMatches> matchesToSave = new ArrayList<>();
+
 			for (Row row : sheet) {
 				if (row.getRowNum() == 0)
-					continue; // skip header
-				Cell cell = row.getCell(0);
-				if (cell == null)
 					continue;
-				String name = cell.getStringCellValue().trim();
-				name = service.cleanMedicineName(name);
-				if (name.isEmpty())
+				Cell codeCell = row.getCell(0);
+				Cell nameCell = row.getCell(1);
+				if (codeCell == null)
 					continue;
+
+				String itemCode = getCellString(codeCell).trim();
+				String name = nameCell != null ? nameCell.getStringCellValue().trim() : "";
+				if (itemCode.isEmpty())
+					continue;
+
+				// ③ السعر بالكود — O(1)
+				double price = priceMap.getOrDefault(itemCode, 0.0);
+
 				Product p = new Product();
-//				p.setPrice(0);	
-				p.setName(name);
-				zss.save(p);
+				p.setItemCode(itemCode);
+				p.setName(service.cleanMedicineName(name));
+				p.setPrice(price);
+				toSave.add(p);
+
+				// ④ الـ fuzzy مع المخازن — بس هنا مرة واحدة
+				String cleanName = service.cleanMedicineName(name);
+				Map<String, Double> warehouseMatches = new LinkedHashMap<>();
+				for (Map.Entry<Medicine, String> entry : cleanedMeds.entrySet()) {
+					double score = service.similarity(entry.getValue(), cleanName);
+					if (score >= 0.88) {
+						warehouseMatches.merge(entry.getKey().getWarehouse(), entry.getKey().getDiscount(), Math::max);
+					}
+				}
+
+				// ⑤ حفظ النتائج — هنحتاج الـ id بعد الـ save
+				p.setPendingMatches(warehouseMatches); // هنضيف الحقل ده مؤقتاً
 			}
+
+			// ⑥ save الـ products وبعدين save الـ matches بالـ id
+			zss.saveAll(toSave);
+			zeroStockMatchRepo.deleteAll();
+
+			for (Product p : toSave) {
+				p.getPendingMatches().forEach((warehouse, discount) -> {
+					ZeroStockWithMatches m = new ZeroStockWithMatches();
+					m.setProductId(p.getId());
+					m.setWarehouseName(warehouse);
+					m.setDiscount(discount);
+					matchesToSave.add(m);
+				});
+			}
+			zeroStockMatchRepo.saveAll(matchesToSave);
 			workbook.close();
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -173,4 +295,15 @@ public class MedicineController {
 		model.addAttribute("comparisonRows", comparisonMap.values());
 		return "upload_zero";
 	}
+
+	private String getCellString(Cell cell) {
+		if (cell == null)
+			return "";
+		return switch (cell.getCellType()) {
+		case STRING -> cell.getStringCellValue().trim();
+		case NUMERIC -> String.valueOf((long) cell.getNumericCellValue());
+		default -> "";
+		};
+	}
+
 }

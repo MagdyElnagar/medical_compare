@@ -12,15 +12,24 @@ public class Medicine {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
-	
+
 	private String rawName; // الاسم الأصلي من الإكسيل
 	private String brandName; // الاسم المستخرج (مثلاً: اركوكسيا)
 	private String strength; // التركيز المستخرج (مثلاً: 90)
 	private String unit; // الوحدة (mg, ml)
 	private Double price;
 	private Double discount;
-	private String warehouse; // 
+	private String warehouse; //
+
+	private String itemCode; // أضف ده
+
+	public String getItemCode() {
+		return itemCode;
+	}
+
+	public void setItemCode(String itemCode) {
+		this.itemCode = itemCode;
+	}
 
 	public Long getId() {
 		return id;
@@ -85,6 +94,5 @@ public class Medicine {
 	public void setWarehouse(String warehouse) {
 		this.warehouse = warehouse;
 	}
-
 
 }

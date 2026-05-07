@@ -59,6 +59,7 @@ public class compare_MVC {
 					continue;
 				try {
 					// قراءة البيانات (تأكد من ترتيب الأعمدة عندك: اسم، سعر، خصم)
+					
 					String name = row.getCell(0).getStringCellValue();
 					double price = row.getCell(1).getNumericCellValue();
 					double discount = row.getCell(2).getNumericCellValue();

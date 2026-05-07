@@ -5,17 +5,17 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-import com.example.medical_compare.model.Product;
 import com.example.medical_compare.model.ZeroStockWithMatches;
 
 
+
 @EnableJpaRepositories
-public interface ZeroStockRepository extends JpaRepository<Product, Long> {
+public interface ZeroStockMatchRepository extends JpaRepository<ZeroStockWithMatches, Long> {
 	
 	
     void deleteByProductId(Long productId);
     void deleteAll();
-    List<Product> findByProductId(Long productId);
+    List<ZeroStockWithMatches> findByProductId(Long productId);
 }
 
 
