@@ -118,10 +118,46 @@ public class compare_MVC {
 	}
 
 	/**
+	 * كلمات التمييز — لو صنفين فيهم كلمتين مختلفتين من القائمة دي
+	 * يبقوا منتجين مختلفين حتى لو الاسم متشابه والسعر واحد
+	 * مثال: اوتريفين اطفال vs اوتريفين كبار -> مختلفين
+	 *        اوروفكس فراوله vs اوروفكس قرنفل -> مختلفين
+	 */
+	private static final java.util.Set<String> DISCRIMINATING_WORDS = new java.util.HashSet<>(
+		java.util.Arrays.asList(
+			// فئات المرضى
+			"اطفال", "كبار", "بيبي", "اطفل", "نساء", "رجال",
+			// نكهات وعطور
+			"فراوله", "نعناع", "قرنفل", "ليمون", "برتقال", "توت", "عود", "ورد",
+			"لافندر", "النسيم", "البينك", "هيربال", "فيتامين", "فانيلا",
+			// ألوان
+			"ابيض", "اسود", "رصاصي", "احمر", "ازرق", "اخضر", "بنى",
+			// تركيبات مختلفة
+			"بلس", "plus", "فورت", "ادفانس", "ماكس", "اكسترا", "سوبر",
+			// مناطق الجسم
+			"للانف", "للعين", "للفم", "للاذن", "للجسم", "للشعر", "للوجه"
+		)
+	);
+
+	private boolean hasDifferentDiscriminatingWord(String name1, String name2) {
+		java.util.Set<String> words1 = new java.util.HashSet<>();
+		java.util.Set<String> words2 = new java.util.HashSet<>();
+		for (String w : DISCRIMINATING_WORDS) {
+			if (name1.contains(w)) words1.add(w);
+			if (name2.contains(w)) words2.add(w);
+		}
+		// لو الاثنين فيهم كلمات تمييز مختلفة -> منتجات مختلفة
+		if (!words1.isEmpty() && !words2.isEmpty() && !words1.equals(words2))
+			return true;
+		return false;
+	}
+
+	/**
 	 * المنطق:
-	 * 1. السعر لازم يتطابق تماماً (فرق أقل من 0.01)
-	 * 2. التركيز (الأرقام في الاسم) لازم يتطابق — ده يمنع دمج ايراستابكس 40 مع ايراستابكس كو 40-5
-	 * 3. الاسم بعد شيل التركيز لازم يكون متشابه بـ 75%+
+	 * 1. السعر لازم يتطابق تماماً
+	 * 2. مفيش كلمات تمييز مختلفة (اطفال vs كبار، فراوله vs قرنفل)
+	 * 3. التركيز لازم يتطابق
+	 * 4. الاسم متشابه بـ 75%+
 	 */
 	private String findMatchByPriceAndName(Map<String, ComparisonRow> map,
 			String name, double price) {
@@ -130,29 +166,28 @@ public class compare_MVC {
 		String bestKey   = null;
 		double bestScore = 0;
 
-		// استخرج التركيز من الاسم الجديد
 		String newDose = service.extractDose(name);
 
 		for (String key : map.keySet()) {
 			ComparisonRow existing = map.get(key);
 
-			// 1. السعر لازم يكون متطابق تقريباً
+			// 1. السعر لازم يكون متطابق
 			if (Math.abs(existing.getPrice() - price) > 0.01)
 				continue;
 
-			// 2. التركيز لازم يتطابق تماماً
-			String existingDose = service.extractDose(
-				service.cleanMedicineName(existing.getBrandName())
-			);
+			String existingClean = service.cleanMedicineName(existing.getBrandName());
+
+			// 2. لو فيه كلمات تمييز مختلفة -> مش نفس المنتج
+			if (hasDifferentDiscriminatingWord(name, existingClean))
+				continue;
+
+			// 3. التركيز لازم يتطابق
+			String existingDose = service.extractDose(existingClean);
 			if (!newDose.equals(existingDose))
 				continue;
 
-			// 3. الاسم بعد شيل التركيز لازم يكون متشابه
-			double score = jw.apply(
-				service.cleanMedicineName(existing.getBrandName()),
-				name
-			);
-
+			// 4. الاسم متشابه
+			double score = jw.apply(existingClean, name);
 			if (score > 0.75 && score > bestScore) {
 				bestScore = score;
 				bestKey   = key;
